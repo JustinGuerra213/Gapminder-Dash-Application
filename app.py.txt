@@ -1,0 +1,111 @@
+import json
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+import numpy as np
+import pandas as pd
+import plotly.express as px
+
+#Reading and preprocessing the data
+df = pd.read_csv(
+    'C:/Users/justi.DESKTOP-O1PU3B3/OneDrive/Documents/GitHub/'
+    'miniprojects_for_training/Data Science Web Development/'
+    'gapminder_clean.csv')
+
+df = df.drop(["Unnamed: 0"], axis = 1)
+country_names = df["Country Name"].unique()
+continent_names = df["continent"].unique()
+indicator_columns = list(df.columns)
+indicator_columns.remove("Country Name")
+indicator_columns.remove("continent")
+indicator_columns.remove("Year")
+
+#Filling in blank values for continent to be unidentified
+df['continent'].fillna("missing", inplace = True)
+
+#Variables to initialize
+starting_year = df['Year'].min()
+ending_year = df['Year'].max()
+
+#Making the Juypter application
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+app = dash.Dash(__name__,external_stylesheets=external_stylesheets)
+
+app.layout = html.Div([
+    
+    #Adding reactive x-axis dropdown, linear & log buttons for the graphs
+    html.Div([
+        dcc.Dropdown(
+            id = 'xaxis-column',
+            options = [{'label' : i,'value' : i} for i in indicator_columns],
+            value = 'Domestic credit provided by financial sector (% of GDP)',
+            placeholder = "Select a variable for the x-axis"
+        ),
+        dcc.RadioItems(
+            id = 'xaxis-type',
+            options = [{'label' : i, 'value' : i} for i in ['Linear', 'Log']],
+            value = 'Linear',
+            labelStyle = {'display': 'inline-block'}
+        )
+    ],
+    style = {'width' : '40%', 'display': 'inline-block'}),
+    
+    #Adding reactive y-axis dropdown, linear & log buttons for the graphs
+    html.Div([
+        dcc.Dropdown(
+            id = 'yaxis-column',
+            options = [{'label' : i, 'value' : i} for i in indicator_columns],
+            value = 'Population density (people per sq. km of land area)',
+            placeholder = "Select a variable for the y-axis"
+        ),
+        dcc.RadioItems(
+            id = 'yaxis-type',
+            options = [{'label' : i, 'value' : i} for i in ['Linear', 'Log']],
+            value = 'Log',
+            labelStyle = {'display': 'inline-block'}
+        )
+    ],
+    style = {'width' : '40%', 'float':'right','display': 'inline-block'}),
+    
+    #Instatiating the graph
+    dcc.Graph(id = 'indicator-graphic'),
+    
+    #Reactive slider for the graph
+    dcc.Slider(
+        id ='year-slider',
+        min = starting_year,
+        max = ending_year,
+        value = starting_year,
+        marks={str(year): str(year) for year in df['Year'].unique()},
+        step = None
+    )
+])
+
+#App Callbacks: Outlining inputs and outputs
+@app.callback(
+    Output('graph-with-slider', 'figure'),
+    Input('xaxis-column', 'value'),
+    Input('xaxis-type', 'value'),
+    Input('yaxis-column', 'value'),
+    Input('yaxis-type', 'value'),
+    Input('year-slider', 'value')
+)
+
+#Call back function for the slider (i.e year)
+def update_figure(x_var, x_lin_log, y_var, y_lin_log, select_year):
+
+    df_by_year = df[df.Year == select_year]
+    fig = px.scatter(df_by_year, x = str(x_var), y = str(y_var))
+    fig.update_layout(transition_duration=500)
+    
+    #Updating axes)
+    fig.update_xaxes(title = x_var, 
+                     type = 'Linear' if x_lin_log == 'Linear' else 'Log')
+    fig.update_yaxes(title = y_var, 
+                     type = 'Linear' if y_lin_log == 'Linear' else 'Log')
+    
+    return fig
+
+if __name__ == '__main__':
+    app.run_server(port = 5240, debug = False)
